@@ -1,0 +1,82 @@
+name: Radar dos Games - Video V2
+
+on:
+  push:
+    branches: [radar-dos-games-v2]
+    paths:
+      - 'radar-dos-games-v2/**'
+      - '.github/workflows/radar-games-v2.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'radar-dos-games-v2/**'
+      - '.github/workflows/radar-games-v2.yml'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg unzip wget curl fonts-dejavu-core
+
+      - name: Prepare neural Brazilian Portuguese voice
+        working-directory: radar-dos-games-v2
+        run: |
+          mkdir -p tools assets work output
+          wget -q https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz -O /tmp/piper.tar.gz
+          tar -xzf /tmp/piper.tar.gz -C tools
+          chmod +x tools/piper/piper
+          wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx -O tools/pt_BR-cadu-medium.onnx
+          wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx.json -O tools/pt_BR-cadu-medium.onnx.json
+
+      - name: Download official GTA VI screenshots
+        working-directory: radar-dos-games-v2
+        run: |
+          set +e
+          wget -q --timeout=45 --tries=2 https://media-rockstargames-com.akamaized.net/VI/downloads/screenshots/GTAVI_Screenshots.zip -O /tmp/gta6.zip
+          ZIP_STATUS=$?
+          set -e
+          if [ "$ZIP_STATUS" -eq 0 ] && unzip -tq /tmp/gta6.zip >/dev/null 2>&1; then
+            unzip -q /tmp/gta6.zip -d assets
+          else
+            echo "Official zip unavailable; using selected official Rockstar screenshots."
+            mkdir -p assets/manual
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Jason_and_Lucia_01.0naeahss9-1x6.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Jason_and_Lucia_01.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Jason_and_Lucia_07.1699ivog8~w1n.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Jason_and_Lucia_07.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Jason_Duval_07.0ca326xbl~oyh.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Jason_Duval_07.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Lucia_Caminos_07.0.c7un8ro7_p2.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Lucia_Caminos_07.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_10.0f1q-xa_4q8r2.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Vice_City_10.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_01.135x56yoeu.6t.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Vice_City_01.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_03.0nqz~lrqdmlze.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Vice_City_03.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_05.0~r~o0jzpp4a-.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Vice_City_05.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Leonida_Keys_01.0zgz7tveur6y8.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Leonida_Keys_01.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Port_Gellhorn_01.0fmisvza-5-cq.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Port_Gellhorn_01.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Grassrivers_01.1096rw4lbjur_.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Grassrivers_01.jpg
+            curl -L --fail --retry 2 'https://www.rockstargames.com/VI/_next/static/media/Mount_Kalaga_National_Park_01.0v5fl0f83hjv_.jpg?akim=1&imdensity=1&imwidth=3840' -o assets/manual/Mount_Kalaga_National_Park_01.jpg
+          fi
+          find assets -type f | head -30
+
+      - name: Render V2 video
+        working-directory: radar-dos-games-v2
+        run: python3 build_v2.py
+
+      - name: Inspect output
+        working-directory: radar-dos-games-v2
+        run: |
+          ls -lh output
+          ffprobe -v error -show_entries format=duration,size -of default=nw=1 output/gta6-10-coisas-confirmadas-v2.mp4
+
+      - name: Upload finished package
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-dos-games-gta6-v2
+          path: radar-dos-games-v2/output/
+          retention-days: 7
