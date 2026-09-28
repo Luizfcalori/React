@@ -6,6 +6,11 @@ on:
     paths:
       - 'radar-dos-games-v2/**'
       - '.github/workflows/radar-games-v2.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'radar-dos-games-v2/**'
+      - '.github/workflows/radar-games-v2.yml'
   workflow_dispatch:
 
 jobs:
